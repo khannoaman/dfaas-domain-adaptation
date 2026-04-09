@@ -1,7 +1,5 @@
 # Domain Adaptation of Performance Modeling in Edge FaaS Systems
 
-## Overview
-
 This project investigates **domain adaptation in decentralized Function-as-a-Service (DFaaS) systems**, focusing on robust performance prediction under **domain shift** across heterogeneous edge environments.
 
 In DFaaS, multiple edge nodes collaborate to execute serverless functions. Each node dynamically decides whether to execute requests locally or offload them to neighboring nodes. These decisions rely heavily on accurate performance prediction models.
@@ -14,7 +12,7 @@ However, due to differences in hardware configurations and workload patterns, mo
 
 Machine learning models trained on a **source domain** (specific node configuration) often fail to generalize to a **target domain** due to:
 
-* Hardware variability (Light / Mid / Heavy nodes)
+* Hardware variability
 * Differences in workload distributions
 * Environmental heterogeneity
 
@@ -38,7 +36,7 @@ This project proposes a unified deep learning framework combining:
 
 ---
 
-### Multi-Task Learning (MTL)
+### 1. Multi-Task Learning (MTL)
 
 A single model **jointly predicts both function-level and node-level metrics**:
 
@@ -58,7 +56,7 @@ This joint learning setup captures interdependencies between individual function
 
 ---
 
-### Permutation-Invariant Modeling
+### 2. Permutation-Invariant Modeling
 
 In DFaaS, active functions form a **set of variable length**, not an ordered sequence.
 
@@ -73,7 +71,7 @@ To handle this:
 
 ---
 
-### Adapter-Based Domain Adaptation
+### 3. Adapter-Based Domain Adaptation
 
 To address domain shift:
 
@@ -97,7 +95,6 @@ The following adapter types are evaluated:
 * Non-linear Projection (ReLU / Tanh)
 * Mask Adapter
 * FiLM (Feature-wise Linear Modulation)
-* Residual Linear Adapter
 * Bottleneck Adapter
 * Residual Bottleneck Adapter
 
@@ -124,7 +121,6 @@ This project performs **systematic experimentation** across:
 
 * Multiple adapter architectures
 * Multiple insertion positions
-* Multiple hyperparameter configurations
 
 Each configuration is implemented as a separate notebook.
 
@@ -137,8 +133,8 @@ notebooks/
 │
 ├── experiments/
 │   ├── analysis/
-│   │   ├── shift/        # Covariate and concept shift analysis
-│   │   └── overview/     # Dataset exploration
+│   │   └── domain_shift_analysis.ipynb        # Covariate, concept and label shift analysis
+│   │   
 │   │
 │   ├── baseline_training/
 │   │   └── cross_validation/
@@ -169,11 +165,11 @@ notebooks/
 ### Domain Shift Analysis
 
 ```text
-notebooks/experiments/analysis/
+notebooks/experiments/analysis/domain_shift_analysis.ipynb
 ```
 
 * Understand distribution differences between domains
-* Visualize covariate and concept shift
+* Visualize covariate, concept and label shift
 
 ---
 
@@ -184,7 +180,7 @@ baseline_training/cross_validation/
 ```
 
 * `V1` → Train model on **Source Domain**
-* `V2` → Train model from scratch on **Target Domain (upper-bound reference)**
+* `V2` → Train model from scratch on **Target Domain (reference performance for domain adaptation)**
 
 ---
 
@@ -196,7 +192,7 @@ domain_adaptation/
 
 Each folder corresponds to a **specific adapter insertion position**.
 
-Each notebook represents a **specific adapter architecture/configuration**.
+Each notebook inside the folder represents a **specific adapter architecture/configuration**.
 
 ---
 
@@ -219,52 +215,111 @@ Adapter versions follow a structured naming scheme:
 
 ### 1. Target Domain (From Scratch – Reference)
 
-* Model trained directly on target domain
-* Establishes **upper-bound performance**
+Model trained directly on the **target domain**:
+
+* **Regression:**
+
+  * R² ≈ **0.83**
+  * MAPE ≈ **2.01**
+
+* **Classification:**
+
+  * Accuracy ≈ **95.9%**
+  * Macro-F1 ≈ **0.91**
+  * Overload F1 ≈ **0.84**
 
 ---
 
 ### 2. Source Model on Target Domain (No Adaptation)
 
-* Severe performance degradation due to domain shift
-* Demonstrates lack of generalization
+Source-trained model evaluated directly on the target domain:
+
+* **Regression:**
+
+  * R² ≈ **0.05**
+  * MAPE ≈ **5.34**
+
+* **Classification:**
+
+  * Accuracy ≈ **89.7%**
+  * Macro-F1 ≈ **0.80**
+
+This shows **severe degradation** due to domain shift and confirms strong distributional differences between environments.
 
 ---
 
 ### 3. Adapter-Based Domain Adaptation
 
-* Recovers most of the lost performance
-* Best configuration:
+Adapter-based approach significantly recovers performance:
 
-  * **Bottleneck Adapter + Pre-Output (Task-Specific)**
+* **Best Configuration:**
 
----
+  * **Bottleneck Adapter inserted at Pre-Output position (Task specific)**
 
-### Performance Summary
+* **Regression:**
 
-* **R² ≈ 0.83**
-* **Accuracy ≈ 0.96**
+  * R² ≈ **0.83**
+  * MAPE ≈ **1.99**
 
----
+* **Classification:**
 
-### Efficiency Gains
+  * Accuracy ≈ **94.2%**
+  * Macro-F1 ≈ **0.88**
 
-* Only **adapter parameters are trained**
-* Significant reduction in:
-
-  * Number of trainable parameters
-  * Training time
-* No need to retrain full model
+Achieves performance **comparable to full retraining**, while adapting from the source model.
 
 ---
 
-### Data Reduction Experiments
+## Performance Comparison
 
-* With ~30% data:
+| Setting                         | R²   | MAPE | Accuracy | Macro-F1 |
+| ------------------------------- | ---- | ---- | -------- | -------- |
+| Target (from scratch)           | 0.83 | 2.01 | 95.9%    | 0.91     |
+| Source → Target (no adaptation) | 0.05 | 5.34 | 89.7%    | 0.80     |
+| Adapter-based adaptation        | 0.83 | 1.99 | 94.2%    | 0.88     |
 
-  * Strong regression performance maintained (R² ≈ 0.73)
-* Performance drops significantly below ~10%
-* Classification (overload detection) remains more robust
+---
+
+## Efficiency Gains
+
+Adapter-based adaptation provides **significant computational savings**:
+
+* **Trainable Parameters:**
+
+  * Scratch model: **81,975**
+  * Adapter model: **33,152**
+  * **~60% reduction**
+
+* **Training Time:**
+
+  * Scratch model: **~2403 seconds**
+  * Adapter model: **~1064 seconds**
+  * **~2.3× faster training**
+
+Achieves **near-identical performance with substantially lower cost**
+
+---
+
+## Data Reduction Experiments
+
+* With **≈ 30% of target-domain data**:
+
+  * Regression performance remains strong:
+
+    * R² ≈ **0.73**
+
+* With **≈ 20% data**:
+
+  * Classification performance remains relatively stable
+
+* Below **≈ 10% data**:
+
+  * Significant performance degradation observed
+
+Key insight:
+
+* **Workload diversity is as important as dataset size**
+* Balanced coverage of input space improves adaptation effectiveness
 
 ---
 
@@ -292,10 +347,11 @@ Adapter versions follow a structured naming scheme:
 ## Tech Stack
 
 * Python
-* Deep Learning (PyTorch / TensorFlow)
+* TensorFlow
 * NumPy, Pandas
 * Scikit-learn
 * Matplotlib
+* Seaborn
 
 ---
 
@@ -322,6 +378,6 @@ University of Milano-Bicocca
 
 ## Acknowledgements
 
-Supervisor: Prof. Michele Ciavotta
-Co-Supervisor: Dr.ssa Federica Filippini
+* Supervisor: Prof. Michele Ciavotta
+* Co-Supervisor: Dr.ssa Federica Filippini
 
